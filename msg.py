@@ -33,6 +33,17 @@ class Decoder():
                 "maskTop": int.from_bytes(recv_data[12:16], byteorder=self.byteorder),
                 "maskLeft": int.from_bytes(recv_data[16:20], byteorder=self.byteorder),
             } 
+        elif(pkt_type == PackageDef.PKT_SUGGEST_ANSWERS):
+            decoded_data = {
+                "def": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
+                "questNumber": int.from_bytes(recv_data[4:8], byteorder=self.byteorder),
+                "index": int.from_bytes(recv_data[8:12], byteorder=self.byteorder),
+                "numberQuestions": int.from_bytes(recv_data[12:16], byteorder=self.byteorder),
+                "answer": []
+            }
+            for idx in range(decoded_data["numberQuestions"]):
+                decoded_data["answer"].append(int.from_bytes(recv_data[(idx*4+16):(idx*4+20)], byteorder=self.byteorder))
+            
         elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             decoded_data = {
                 "def": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
@@ -56,14 +67,23 @@ class Encoder():
         for k, item in data.items():
             if(isinstance(item, str)):
                 length += len(item.encode())
+                
             elif(isinstance(item, int)):
                 length += 4
+                
             elif(isinstance(item, list)):
                 if(isinstance(item[0], dict)): # handle PKT_SELECT_TASK
                     if(package_type == PackageDef.PKT_SELECT_TASK):
                         length += len(item) * (8 + item[0]["image"].shape[0])
+                        
                     elif(package_type == PackageDef.PKT_TASK_REQUEST):
                         length += len(item) * (4 + item[0]["image"].shape[0])
+                        
+                    elif(package_type == PackageDef.PKT_SUGGEST_QUESTIONS):
+                        length += len(item) * 8
+                        for i in item:
+                            length += 8 * i["num_ones"]
+    
                 else:
                     length += 4 * len(item)
                 
@@ -98,6 +118,7 @@ class Encoder():
                             
                             for pix in image:
                                 encoded_data.extend(int(pix).to_bytes(1, byteorder = self.byteorder))
+                                
                         elif(package_type == PackageDef.PKT_TASK_REQUEST):
                             image = i["image"]
                             size = i["size"]
@@ -106,6 +127,18 @@ class Encoder():
                             
                             for pix in image:
                                 encoded_data.extend(int(pix).to_bytes(1, byteorder = self.byteorder))
+                                
+                        elif(package_type == PackageDef.PKT_SUGGEST_QUESTIONS):
+                            size = i["size"]
+                            pos = i["pos"]
+                            num_ones = i["num_ones"] # count number of num 1
+                            
+                            encoded_data.extend(size.to_bytes(4, byteorder = self.byteorder))
+                            encoded_data.extend(num_ones.to_bytes(4, byteorder = self.byteorder))
+                            
+                            for point in pos:
+                                encoded_data.extend(point.y.to_bytes(4, byteorder = self.byteorder))
+                                encoded_data.extend(point.x.to_bytes(4, byteorder = self.byteorder))
                         
                     else:
                         encoded_data.extend(i.to_bytes(4, byteorder = self.byteorder))

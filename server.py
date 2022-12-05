@@ -79,17 +79,34 @@ class GameServer():
             mask_start_pos = (decoded_data["maskTop"], decoded_data["maskLeft"])
             mask_img, origin_region, label = self.quest_generator.get_mask_questions(conn_def, quest_num, task_idx, mask_start_pos)
             
-            msg = self.suggest_game_handler.get_msg(conn_def,
-                                            quest_num,
-                                            mask_img,
-                                            origin_region, 
-                                            label,
-                                            self.image_size[0],
-                                            mask_start_pos
-                                            )
+            msg = self.suggest_game_handler.get_msg_task_request(conn_def,
+                                                                quest_num,
+                                                                mask_img,
+                                                                origin_region, 
+                                                                label,
+                                                                self.image_size[0],
+                                                                mask_start_pos
+                                                                )
             
             encoded_msg = self.msg_handler.encode(PackageDef.PKT_TASK_REQUEST, msg)
             self.suggest_game_handler.add_encoded_msg(encoded_msg, conn_def, quest_num) 
+        
+        elif(pkt_type == PackageDef.PKT_SUGGEST_ANSWERS):
+            conn_def = decoded_data["def"]
+            quest_num = decoded_data["questNumber"]
+            index = decoded_data["index"]
+            num_quests = decoded_data["numberQuestions"]
+            answer = decoded_data["answer"]
+            
+            assert len(answer) == num_quests, "Something Wrong"
+            check_results = self.suggest_game_handler.check_suggest_game_answer(conn_def,
+                                                                                quest_num,
+                                                                                index,
+                                                                                answer)
+            
+            
+            
+            
             
         elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             conn_def = decoded_data["def"]
@@ -99,7 +116,9 @@ class GameServer():
             
             if(check_result == -1):
                 # send PKT_SUGGEST_QUESTIONS
-                pass
+                msg = self.suggest_game_handler.get_msg_suggest_quests(conn_def, quest_num)
+                encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_QUESTIONS, msg)
+                
             else:
                 # send PKT_ANSWER_CHECKED
                 msg = {

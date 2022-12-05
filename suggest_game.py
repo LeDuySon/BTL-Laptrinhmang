@@ -1,7 +1,17 @@
+import random
+import numpy as np
 from collections import defaultdict
-
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 class SuggestGameHandler():
-    def __init__(self):
+    def __init__(self, test_case_path="data/Testcase.out"):
+        # read testcase for suggest game 
+        self.num_test_cases = 0
+        self.test_cases = self.read_test_cases(test_case_path)
+        
+        # game play params
         self.player1 = None
         self.player2 = None
         
@@ -9,9 +19,14 @@ class SuggestGameHandler():
         
         self.encoded_msg_container = defaultdict(list)
         self.quest_container = defaultdict(list)
+        self.quest_index_counter = defaultdict(int) # đếm số thứ tự của lượt đấu gợi ý trog câu hỏi N
+        self.quest_index_container = defaultdict(list) # Store index of test cases of question in suggest game
         
         self.current_quest = 0
         self.game_start = False
+        
+        self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [36, 28, 20, 12, 4])}
+        
         
     def init_players(self, conn, player_id):
         if(not self.player1):
@@ -23,15 +38,15 @@ class SuggestGameHandler():
             
         self.player2conn[player_id] = conn
             
-    def get_msg(self, 
-                conn_def, 
-                quest_num,
-                mask_img,
-                origin_region, 
-                label,
-                img_size,
-                mask_start_pos
-                ):
+    def get_msg_task_request(self, 
+                            conn_def, 
+                            quest_num,
+                            mask_img,
+                            origin_region, 
+                            label,
+                            img_size,
+                            mask_start_pos
+                            ):
         msg = {
                 "def": self.player1 if self.player2 == conn_def else self.player2,
                 "questNumber": quest_num,
@@ -48,10 +63,92 @@ class SuggestGameHandler():
             "mask_img": mask_img,
             "origin_region": origin_region,
             "label": label,
-            "img_size": img_size
+            "img_size": img_size,
+            "mask_start_pos": mask_start_pos
         })
         
         return msg
+    
+    def get_msg_suggest_quests(self, 
+                               conn_def,
+                               quest_num
+                               ):
+        self.quest_index_counter[f"{conn_def}_{quest_num}"] += 1
+        
+        num_quests = self.num_quests_per_index[self.quest_index_counter[f"{conn_def}_{quest_num}"]]
+        quests_idx = random.sample([idx for idx in range(1, self.num_test_cases + 1)])
+        test_cases = [self.test_cases[idx] for idx in quests_idx]
+        
+        # store
+        self.quest_index_container[f"{conn_def}_{quest_num}"].append(quests_idx)
+        
+        msg = {
+            "def": conn_def,
+            "questNumber": quest_num,
+            "index": self.quest_index_counter[f"{conn_def}_{quest_num}"],
+            "numberQuestions": num_quests,
+            "questions": test_cases
+            }
+        
+        return msg
+    
+    def get_msg_suggest_results(self,
+                                conn_def,
+                                quest_num,
+                                index,
+                                num_quests,
+                                check_results):
+        msg = {
+            "def": conn_def,
+            "questNumber": quest_num,
+            "index": self.quest_index_counter[f"{conn_def}_{quest_num}"],
+            "numberQuestions": num_quests,
+            "suggestions": None
+        }
+        
+        unmask_val = self.get_unmask_image(conn_def, quest_num, index, check_results)
+        msg["suggestions"] = {"unmask_val": unmask_val}
+        
+        return msg
+        
+    def get_unmask_image(self, 
+                         conn_def,
+                         quest_num,
+                         index,
+                         check_results):
+        quest_info = self.quest_container[conn_def][quest_num - 1]
+        
+        mask_start_pos = quest_info["mask_start_pos"] # index question 0
+        # not minus 1 in pos[1] because dx will be 1 when we start
+        current_mask_start_pos = (mask_start_pos[0] + (index-1), mask_start_pos[1] + (index)) # current index
+        
+        turn_dir = {
+            0: [1, 0],
+            1: [0, 1],
+            2: [-1, 0],
+            3: [0, -1]
+            }
+        
+        turn = 0
+        
+        unmask_val = []
+        for r in check_results:
+            if(r == 0): # wrong -> dont unmask
+                unmask_val.append(2)
+                continue
+            
+            y, x = current_mask_start_pos # top, left
+            dx, dy = turn_dir[turn]
+            x += dx
+            y += dy
+            
+            quest_info["mask_img"][x][y] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
+            unmask_val.append(quest_info["mask_img"][x][y])
+            
+            if(quest_info["mask_img"][x+dx][y+dy] != 2):
+                turn += 1
+                
+        return unmask_val
     
     def add_encoded_msg(self, encoded_msg, conn_def, quest_num):
         self.current_quest += 1 
@@ -82,6 +179,65 @@ class SuggestGameHandler():
             check_result = -1
         
         return check_result, server_answer
+    
+    def check_suggest_game_answer(self, 
+                                  conn_def, 
+                                  quest_num, 
+                                  index,
+                                  answer):
+        indexes = self.quest_index_container[f"{conn_def}_{quest_num}"][index-1]
+        server_answer = [self.test_cases[index]["res"] for index in indexes]
+        
+        assert len(answer) == len(server_answer), f"Client answer {len(answer)} != Server answer {len(server_answer)}"
+        
+        results = []
+        for c, s in zip(answer, server_answer):
+            if(c != s):
+                results.append(0)
+            else:
+                results.append(1) 
+                
+        return results 
+    
+    def read_test_cases(self, test_case_path):
+        test_cases = {}
+        current_test = None
+        line_inp = False
+        
+        with open(test_case_path, "r") as f:
+            for line in f:
+                elem = line.split(":")
+                if(elem[0] == "test"):
+                    current_test = int(elem[1].strip())
+                    test_cases[current_test] = {
+                        "pos": [], # position of 1 in matrix
+                        "res": [], # number of connected components
+                        "size": None, # matrix size n*n
+                        "num_ones": None
+                    }
+                    
+                    self.num_test_cases += 1
+                    line_inp = True
+                elif(line_inp):
+                    n, k = list(map(int, elem[0].split(" ")))
+                    test_cases[current_test]["size"] = n
+                    test_cases[current_test]["num_ones"] = k
+                    
+                    line_inp = False
+                elif(elem[0] == "res"):
+                    test_cases[current_test]["res"] = int(elem[1].strip())
+                else:
+                    x, y = elem[0].split(" ")
+                    test_cases[current_test]["pos"].append(Point(int(x), int(y)))
+                    
+        return test_cases
+    
+    
+if __name__ == "__main__":
+    test = SuggestGameHandler()
+    out = test.read_test_cases()
+    
+    print(out[1])
             
             
         

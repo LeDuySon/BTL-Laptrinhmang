@@ -1,8 +1,10 @@
 import socket
 from _thread import *
 import random
+import time
 from msg import MessageHandler, PackageDef
 from question import QuestionGenerator
+from suggest_game import SuggestGameHandler
 
 class GameServer():
     def __init__(self, host, port):
@@ -15,10 +17,14 @@ class GameServer():
         self.msg_handler = MessageHandler()
         
         # create question generator
+        self.image_size = (40, 40)
         self.quest_generator = QuestionGenerator(num_questions=5,
                                                  select_time=10,
                                                  number_task=5,
-                                                 image_size=(40, 40))
+                                                 image_size=self.image_size)
+        
+        # init suggest game player handler
+        self.suggest_game_handler = SuggestGameHandler()
         
         # gameplay control
         self.max_players = 2
@@ -27,7 +33,6 @@ class GameServer():
         self.connections = []
         self.addresses = []
         self.game_start = False
-        self.suggest_game_start = False
         
     def init_server(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -54,8 +59,10 @@ class GameServer():
         # decode msg 
         pkt_type, data_length, decoded_data = self.msg_handler.decode(data)
         
+        print(f"Receive package {pkt_type} - {data_length}")
+        
         # handle
-        encoded_data = b""
+        encoded_data = None
         if(pkt_type == PackageDef.PKT_HELLO):
             msg = {
                     "def": self.address_to_def[address], 
@@ -69,9 +76,45 @@ class GameServer():
             conn_def = decoded_data["def"]
             quest_num = decoded_data["questNumber"]
             task_idx = decoded_data["taskSelected"]
-            send_quest = self.quest_generator.get_mask_questions(conn_def, quest_num, task_idx)
+            mask_start_pos = (decoded_data["maskTop"], decoded_data["maskLeft"])
+            mask_img, origin_region, label = self.quest_generator.get_mask_questions(conn_def, quest_num, task_idx, mask_start_pos)
             
-        conn.sendall(encoded_data)
+            msg = self.suggest_game_handler.get_msg(conn_def,
+                                            quest_num,
+                                            mask_img,
+                                            origin_region, 
+                                            label,
+                                            self.image_size[0],
+                                            mask_start_pos
+                                            )
+            
+            encoded_msg = self.msg_handler.encode(PackageDef.PKT_TASK_REQUEST, msg)
+            self.suggest_game_handler.add_encoded_msg(encoded_msg, conn_def, quest_num) 
+            
+        elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
+            conn_def = decoded_data["def"]
+            quest_num = decoded_data["questNumber"]
+            answer = decoded_data["answer"]
+            check_result, server_answer = self.suggest_game_handler.check_answer(conn_def, quest_num, answer)
+            
+            if(check_result == -1):
+                # send PKT_SUGGEST_QUESTIONS
+                pass
+            else:
+                # send PKT_ANSWER_CHECKED
+                msg = {
+                    "def": conn_def, 
+                    "questNumber": quest_num,
+                    "result": check_result,
+                    "clientAnswer": int(answer),
+                    "serverAnswer": server_answer,
+                    "numberBlockOpened": 0
+                 }
+                
+                encoded_data = self.msg_handler.encode(PackageDef.PKT_ANSWER_CHECKED, msg)
+                    
+        if(encoded_data):
+            conn.sendall(encoded_data)
         
     def broadcast(self, pkt_type):
         for idx, conn in enumerate(self.connections):
@@ -91,16 +134,19 @@ class GameServer():
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_SELECT_TASK, msg)
                 
             conn.sendall(encoded_data)
-            
     
     def accept_connections(self):
         conn, address = self.server_socket.accept()
         print('Connected to: ' + address[0] + ':' + str(address[1]))
         
         self.num_players += 1
+        print("Current player: ", self.num_players)
         self.connections.append(conn)
         self.addresses.append(address)
-        self.address_to_def[address] = random.randint(1, 1000)
+        
+        player_id = random.randint(1, 1000)
+        self.address_to_def[address] = player_id
+        self.suggest_game_handler.init_players(conn, player_id)
         
         if(self.num_players == 2):
             self.game_start = True
@@ -119,9 +165,12 @@ class GameServer():
                 if(self.game_start):
                     self.game_start = False
                     # send start signal to all client
+                    time.sleep(1)
                     self.broadcast(PackageDef.PKT_START)
                     # send question to all client
-                    self.broadcast(PackageDef.PKT_SELECT_TASK)
+                    self.broadcast(PackageDef.PKT_SELECT_TASK)   
+                    
+                                     
                         
         except Exception as e:
             raise e

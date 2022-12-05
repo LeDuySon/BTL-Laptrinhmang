@@ -33,6 +33,12 @@ class Decoder():
                 "maskTop": int.from_bytes(recv_data[12:16], byteorder=self.byteorder),
                 "maskLeft": int.from_bytes(recv_data[16:20], byteorder=self.byteorder),
             } 
+        elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
+            decoded_data = {
+                "def": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
+                "questNumber": int.from_bytes(recv_data[4:8], byteorder=self.byteorder),
+                "answer": int.from_bytes(recv_data[4:8], byteorder=self.byteorder)
+            }
         else:
             decoded_data = recv_data
         
@@ -45,7 +51,7 @@ class Encoder():
     def __init__(self, byteorder="little"):
         self.byteorder = byteorder
         
-    def get_package_length(self, data):
+    def get_package_length(self, data, package_type):
         length = 0
         for k, item in data.items():
             if(isinstance(item, str)):
@@ -54,7 +60,10 @@ class Encoder():
                 length += 4
             elif(isinstance(item, list)):
                 if(isinstance(item[0], dict)): # handle PKT_SELECT_TASK
-                    length += len(item) * (8 + item[0]["image"].shape[0])
+                    if(package_type == PackageDef.PKT_SELECT_TASK):
+                        length += len(item) * (8 + item[0]["image"].shape[0])
+                    elif(package_type == PackageDef.PKT_TASK_REQUEST):
+                        length += len(item) * (4 + item[0]["image"].shape[0])
                 else:
                     length += 4 * len(item)
                 
@@ -66,7 +75,7 @@ class Encoder():
         encoded_data.extend(package_type.to_bytes(4, byteorder = self.byteorder))
         
         # length
-        package_length = self.get_package_length(data)
+        package_length = self.get_package_length(data, package_type)
         encoded_data.extend(package_length.to_bytes(4, byteorder = self.byteorder))
         
         # data
@@ -79,19 +88,29 @@ class Encoder():
             elif(isinstance(item, list)):
                 for i in item:
                     if(isinstance(i, dict)): # handle PKT_SELECT_TASK
-                        label = int(i["label"])
-                        image = i["image"] 
-                        size = i["size"]
-                        
-                        encoded_data.extend(label.to_bytes(4, byteorder = self.byteorder))
-                        encoded_data.extend(size.to_bytes(4, byteorder = self.byteorder))
-                        
-                        for pix in image:
-                            encoded_data.extend(int(pix).to_bytes(1, byteorder = self.byteorder))
+                        if(package_type == PackageDef.PKT_SELECT_TASK):
+                            label = int(i["label"])
+                            image = i["image"] 
+                            size = i["size"]
+                            
+                            encoded_data.extend(label.to_bytes(4, byteorder = self.byteorder))
+                            encoded_data.extend(size.to_bytes(4, byteorder = self.byteorder))
+                            
+                            for pix in image:
+                                encoded_data.extend(int(pix).to_bytes(1, byteorder = self.byteorder))
+                        elif(package_type == PackageDef.PKT_TASK_REQUEST):
+                            image = i["image"]
+                            size = i["size"]
+                            
+                            encoded_data.extend(size.to_bytes(4, byteorder = self.byteorder))
+                            
+                            for pix in image:
+                                encoded_data.extend(int(pix).to_bytes(1, byteorder = self.byteorder))
                         
                     else:
                         encoded_data.extend(i.to_bytes(4, byteorder = self.byteorder))
-                        
+        
+        print(f"Package type: {package_type} - Length: {package_length}")
         return encoded_data        
         
 class MessageHandler():

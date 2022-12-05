@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os 
 
-path = "archive/mnist_train.csv"
+path = "data/mnist_test.csv"
 
 df = pd.read_csv(path)
 label = df.iloc[:, 0]

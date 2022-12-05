@@ -49,7 +49,7 @@ class GameServer():
     def client_handler(self, conn, address):
         while True:
             data = conn.recv(4096)
-            
+            print(f"Receive data from {address}")
             # run main logic
             self.logic_handle(conn, address, data)
             
@@ -59,7 +59,7 @@ class GameServer():
         # decode msg 
         pkt_type, data_length, decoded_data = self.msg_handler.decode(data)
         
-        print(f"Receive package {pkt_type} - {data_length}")
+        print(f"Receive package {pkt_type} - {data_length} - {decoded_data}")
         
         # handle
         encoded_data = None
@@ -104,9 +104,15 @@ class GameServer():
                                                                                 index,
                                                                                 answer)
             
+            msg = self.suggest_game_handler.get_msg_suggest_results(conn_def,
+                                                                    quest_num,
+                                                                    index,
+                                                                    num_quests,
+                                                                    check_results)
             
+            print("MSG: ", msg)
             
-            
+            encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_RESULTS, msg)
             
         elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             conn_def = decoded_data["def"]
@@ -119,7 +125,7 @@ class GameServer():
                 msg = self.suggest_game_handler.get_msg_suggest_quests(conn_def, quest_num)
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_QUESTIONS, msg)
                 
-            else:
+            elif(check_result == 1):
                 # send PKT_ANSWER_CHECKED
                 msg = {
                     "def": conn_def, 
@@ -133,7 +139,7 @@ class GameServer():
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_ANSWER_CHECKED, msg)
                     
         if(encoded_data):
-            conn.sendall(encoded_data)
+            conn.send(encoded_data)
         
     def broadcast(self, pkt_type):
         for idx, conn in enumerate(self.connections):

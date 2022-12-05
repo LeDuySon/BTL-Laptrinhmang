@@ -48,7 +48,7 @@ class Decoder():
             decoded_data = {
                 "def": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
                 "questNumber": int.from_bytes(recv_data[4:8], byteorder=self.byteorder),
-                "answer": int.from_bytes(recv_data[4:8], byteorder=self.byteorder)
+                "answer": int.from_bytes(recv_data[8:12], byteorder=self.byteorder)
             }
         else:
             decoded_data = recv_data
@@ -80,12 +80,18 @@ class Encoder():
                         length += len(item) * (4 + item[0]["image"].shape[0])
                         
                     elif(package_type == PackageDef.PKT_SUGGEST_QUESTIONS):
+                        print("Test len item: ", len(item))
                         length += len(item) * 8
+                        # TEST
                         for i in item:
-                            length += 8 * i["num_ones"]
+                            print("Test num ones: ", i["num_ones"])
+                            length += 2 * i["num_ones"]
     
                 else:
-                    length += 4 * len(item)
+                    if(package_type == PackageDef.PKT_SUGGEST_RESULTS):
+                        length += len(item)
+                    else:
+                        length += 4 * len(item)
                 
         return length
     
@@ -136,12 +142,18 @@ class Encoder():
                             encoded_data.extend(size.to_bytes(4, byteorder = self.byteorder))
                             encoded_data.extend(num_ones.to_bytes(4, byteorder = self.byteorder))
                             
+                            # TEST
                             for point in pos:
-                                encoded_data.extend(point.y.to_bytes(4, byteorder = self.byteorder))
-                                encoded_data.extend(point.x.to_bytes(4, byteorder = self.byteorder))
+                                x, y = point.x, point.y
+                                print(x, y)
+                                encoded_data.extend(y.to_bytes(1, byteorder = self.byteorder))
+                                encoded_data.extend(x.to_bytes(1, byteorder = self.byteorder))
                         
                     else:
-                        encoded_data.extend(i.to_bytes(4, byteorder = self.byteorder))
+                        if(package_type == PackageDef.PKT_SUGGEST_RESULTS):
+                            encoded_data.extend(i.to_bytes(1, byteorder = self.byteorder))
+                        else:
+                            encoded_data.extend(i.to_bytes(4, byteorder = self.byteorder))
         
         print(f"Package type: {package_type} - Length: {package_length}")
         return encoded_data        

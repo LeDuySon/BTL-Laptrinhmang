@@ -6,7 +6,8 @@ class Point:
         self.x = x
         self.y = y
 class SuggestGameHandler():
-    def __init__(self, test_case_path="data/Testcase.out"):
+    def __init__(self, image_size=(40, 40), test_case_path="data/Testcase1.out"):
+        self.image_size = image_size
         # read testcase for suggest game 
         self.num_test_cases = 0
         self.test_cases = self.read_test_cases(test_case_path)
@@ -25,7 +26,7 @@ class SuggestGameHandler():
         self.current_quest = 0
         self.game_start = False
         
-        self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [36, 28, 20, 12, 4])}
+        self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [1, 28, 20, 12, 4])}
         
         
     def init_players(self, conn, player_id):
@@ -76,7 +77,7 @@ class SuggestGameHandler():
         self.quest_index_counter[f"{conn_def}_{quest_num}"] += 1
         
         num_quests = self.num_quests_per_index[self.quest_index_counter[f"{conn_def}_{quest_num}"]]
-        quests_idx = random.sample([idx for idx in range(1, self.num_test_cases + 1)])
+        quests_idx = random.sample([idx for idx in range(1, self.num_test_cases + 1)], num_quests)
         test_cases = [self.test_cases[idx] for idx in quests_idx]
         
         # store
@@ -107,7 +108,7 @@ class SuggestGameHandler():
         }
         
         unmask_val = self.get_unmask_image(conn_def, quest_num, index, check_results)
-        msg["suggestions"] = {"unmask_val": unmask_val}
+        msg["suggestions"] = unmask_val
         
         return msg
         
@@ -142,7 +143,7 @@ class SuggestGameHandler():
             x += dx
             y += dy
             
-            quest_info["mask_img"][x][y] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
+            quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
             unmask_val.append(quest_info["mask_img"][x][y])
             
             if(quest_info["mask_img"][x+dx][y+dy] != 2):
@@ -167,16 +168,15 @@ class SuggestGameHandler():
                 conn.sendall(encoded_data)
                 
     def check_answer(self, conn_def, quest_number, answer):
-        # print(conn_def, quest_number)
-        # print(len(self.quest_container[conn_def]))
-        
         server_answer = self.quest_container[conn_def][quest_number - 1]["label"]
         
-        check_result = 0 # -1 nothing, 0 wrong, 1 right
-        if(answer == int(server_answer)):
+        check_result = 0 # 100 no answer, 0 wrong, 1 right
+        if(answer == 1):
             check_result = 1
-        elif(answer == -1):
+        elif(answer == 100):
             check_result = -1
+        else:
+            check_result = 0 # wrong
         
         return check_result, server_answer
     
@@ -206,7 +206,7 @@ class SuggestGameHandler():
         
         with open(test_case_path, "r") as f:
             for line in f:
-                elem = line.split(":")
+                elem = line.strip().split(":")
                 if(elem[0] == "test"):
                     current_test = int(elem[1].strip())
                     test_cases[current_test] = {

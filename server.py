@@ -194,8 +194,6 @@ class GameServer():
                     self.broadcast(PackageDef.PKT_START)
                     # send question to all client
                     self.broadcast(PackageDef.PKT_SELECT_TASK)   
-                    
-                                     
                         
         except Exception as e:
             raise e

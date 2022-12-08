@@ -145,13 +145,12 @@ class Encoder():
                             # TEST
                             for point in pos:
                                 x, y = point.x, point.y
-                                print(x, y)
                                 encoded_data.extend(y.to_bytes(1, byteorder = self.byteorder))
                                 encoded_data.extend(x.to_bytes(1, byteorder = self.byteorder))
                         
                     else:
                         if(package_type == PackageDef.PKT_SUGGEST_RESULTS):
-                            encoded_data.extend(i.to_bytes(1, byteorder = self.byteorder))
+                            encoded_data.extend(int(i).to_bytes(1, byteorder = self.byteorder))
                         else:
                             encoded_data.extend(i.to_bytes(4, byteorder = self.byteorder))
         

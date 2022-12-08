@@ -41,7 +41,6 @@ class QuestionGenerator:
         send_questions = []
         for idx, row in questions.iterrows():
             label = row["label"]
-            print(row)
             image = row[1:].to_numpy()
             
             send_image = self.preprocess_image(image)
@@ -52,9 +51,6 @@ class QuestionGenerator:
         return send_msg
     
     def get_mask_questions(self, conn_def, quest_num, task_idx, mask_start_pos):
-        print(conn_def, quest_num, task_idx)
-        print(self.questions[conn_def])
-        
         selected_question = self.questions[conn_def][quest_num - 1]["taskList"][task_idx] # start from
         label = selected_question["label"]
         

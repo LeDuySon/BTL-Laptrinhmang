@@ -6,7 +6,7 @@ class Point:
         self.x = x
         self.y = y
 class SuggestGameHandler():
-    def __init__(self, image_size=(40, 40), test_case_path="data/Testcase1.out"):
+    def __init__(self, image_size=(40, 40), test_case_path="data/Testcase2.out"):
         self.image_size = image_size
         # read testcase for suggest game 
         self.num_test_cases = 0
@@ -26,7 +26,7 @@ class SuggestGameHandler():
         self.current_quest = 0
         self.game_start = False
         
-        self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [1, 28, 20, 12, 4])}
+        self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [36, 28, 20, 12, 4])}
         
         
     def init_players(self, conn, player_id):
@@ -119,9 +119,13 @@ class SuggestGameHandler():
                          check_results):
         quest_info = self.quest_container[conn_def][quest_num - 1]
         
+        print(quest_info["origin_region"])
+        
         mask_start_pos = quest_info["mask_start_pos"] # index question 0
         # not minus 1 in pos[1] because dx will be 1 when we start
-        current_mask_start_pos = (mask_start_pos[0] + (index-1), mask_start_pos[1] + (index)) # current index
+        current_mask_start_pos = (mask_start_pos[0] + (index - 1), mask_start_pos[1] + (index-2)) # current index
+        
+        y, x = current_mask_start_pos # top, left
         
         turn_dir = {
             0: [1, 0],
@@ -133,21 +137,26 @@ class SuggestGameHandler():
         turn = 0
         
         unmask_val = []
-        for r in check_results:
-            if(r == 0): # wrong -> dont unmask
-                unmask_val.append(2)
-                continue
-            
-            y, x = current_mask_start_pos # top, left
+        for idx, r in enumerate(check_results):
             dx, dy = turn_dir[turn]
             x += dx
             y += dy
             
-            quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
-            unmask_val.append(quest_info["mask_img"][x][y])
+            # print("Idx: ", idx)
+            # print(dx, dy)
+            # print(x, y)
+            # print(f"Coord: {y*self.image_size[0] + x}")
             
-            if(quest_info["mask_img"][x+dx][y+dy] != 2):
+            if(quest_info["mask_img"][(y + dy)*self.image_size[0] + (x+dx)] != 2):
                 turn += 1
+                print(f"Turn {turn}")
+                
+            if(r == 0): # wrong -> dont unmask
+                unmask_val.append(2)
+                continue
+            
+            quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
+            unmask_val.append(quest_info["mask_img"][y*self.image_size[0] + x])
                 
         return unmask_val
     

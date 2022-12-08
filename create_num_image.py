@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os 
+import cv2
 
 path = "data/mnist_test.csv"
 

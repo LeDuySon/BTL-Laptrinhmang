@@ -142,11 +142,6 @@ class SuggestGameHandler():
             x += dx
             y += dy
             
-            # print("Idx: ", idx)
-            # print(dx, dy)
-            # print(x, y)
-            # print(f"Coord: {y*self.image_size[0] + x}")
-            
             if(quest_info["mask_img"][(y + dy)*self.image_size[0] + (x+dx)] != 2):
                 turn += 1
                 print(f"Turn {turn}")
@@ -237,7 +232,7 @@ class SuggestGameHandler():
                     test_cases[current_test]["res"] = int(elem[1].strip())
                 else:
                     x, y = elem[0].split(" ")
-                    test_cases[current_test]["pos"].append(Point(int(x), int(y)))
+                    test_cases[current_test]["pos"].append(Point(int(x) - 1, int(y) - 1))
                     
         return test_cases
     

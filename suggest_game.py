@@ -17,6 +17,7 @@ class SuggestGameHandler():
         self.player2 = None
         
         self.player2conn = {}
+        self.def2player = {}
         
         self.encoded_msg_container = defaultdict(list)
         self.quest_container = defaultdict(list)
@@ -28,16 +29,16 @@ class SuggestGameHandler():
         
         self.num_quests_per_index = {k:v for k, v in zip(range(1, 6), [36, 28, 20, 12, 4])}
         
-        
-    def init_players(self, conn, player_id):
+    def init_players(self, player):
         if(not self.player1):
-            self.player1 = player_id 
+            self.player1 = player 
         elif(not self.player2):
-            self.player2 = player_id
+            self.player2 = player
         else:
             print("More than 2 players")
             
-        self.player2conn[player_id] = conn
+        self.player2conn[player.player_id] = player.conn
+        self.def2player[player.player_id] = player
             
     def get_msg_task_request(self, 
                             conn_def, 
@@ -49,7 +50,7 @@ class SuggestGameHandler():
                             mask_start_pos
                             ):
         msg = {
-                "def": self.player1 if self.player2 == conn_def else self.player2,
+                "def": self.player1.player_id if self.player2.player_id == conn_def else self.player2.player_id,
                 "questNumber": quest_num,
                 "time": 10,
                 "taskRequest": [{
@@ -117,9 +118,10 @@ class SuggestGameHandler():
                          quest_num,
                          index,
                          check_results):
-        quest_info = self.quest_container[conn_def][quest_num - 1]
+        player_id = self.player1.player_id if self.player2.player_id == conn_def else self.player2.player_id
+        quest_info = self.quest_container[player_id][quest_num - 1]
         
-        print(quest_info["origin_region"])
+        print("Origin region: ", quest_info["origin_region"])
         
         mask_start_pos = quest_info["mask_start_pos"] # index question 0
         # not minus 1 in pos[1] because dx will be 1 when we start
@@ -150,7 +152,7 @@ class SuggestGameHandler():
                 unmask_val.append(2)
                 continue
             
-            quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][x - mask_start_pos[1]][y - mask_start_pos[0]]
+            quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][y - mask_start_pos[0]][x - mask_start_pos[1]]
             unmask_val.append(quest_info["mask_img"][y*self.image_size[0] + x])
                 
         return unmask_val
@@ -160,7 +162,7 @@ class SuggestGameHandler():
         if(self.current_quest % 2 == 0): 
             self.game_start = True
         
-        player_id = self.player1 if self.player2 == conn_def else self.player2
+        player_id = self.player1.player_id if self.player2.player_id == conn_def else self.player2.player_id
         self.encoded_msg_container[player_id].append(encoded_msg)
         
         if(self.game_start):
@@ -194,11 +196,14 @@ class SuggestGameHandler():
         
         assert len(answer) == len(server_answer), f"Client answer {len(answer)} != Server answer {len(server_answer)}"
         
+        player = self.def2player[conn_def]
+        
         results = []
         for c, s in zip(answer, server_answer):
             if(c != s):
                 results.append(0)
             else:
+                player.number_block_opened += 1
                 results.append(1) 
                 
         return results 

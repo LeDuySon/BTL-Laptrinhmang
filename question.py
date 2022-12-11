@@ -65,18 +65,18 @@ class QuestionGenerator:
         mask_value = 2
         mask = np.full(self.mask_size, mask_value)
         
-        start_row = mask_start_pos[0]
+        start_row = mask_start_pos[0] 
         # start_row = random.randint(0, self.image_size[0] - self.mask_size[0])
         end_row = min(self.image_size[0], start_row + self.mask_size[0])
         
-        start_col = mask_start_pos[1]
+        start_col = mask_start_pos[1] 
         # start_col = random.randint(0, self.image_size[1] - self.mask_size[0])
         end_col = min(self.image_size[1], start_col + self.mask_size[1])
         
         origin_region = image[start_row:end_row, start_col:end_col].copy()
         image[start_row:end_row, start_col:end_col] = mask 
         
-        return image, origin_region
+        return image, origin_region 
         
     def preprocess_image(self, image, default_size=(28, 28)): 
         n_image = image.reshape(default_size)
@@ -85,9 +85,6 @@ class QuestionGenerator:
                 
         if(default_size != self.image_size):
             n_image = cv2.resize(n_image.astype(np.uint8), self.image_size)
-            # cv2.imshow('test', n_image_resized.astype(np.uint8))
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
 
         return n_image.reshape(-1)
         

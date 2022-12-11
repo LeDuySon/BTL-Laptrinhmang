@@ -41,6 +41,7 @@ class GameServer():
         self.game_start = False
         self.end_score = 3
         self.sleep_time = 0
+        self.is_send_pkt_round_result = False
         
         self.players = []
         self.address2player = {}
@@ -91,7 +92,7 @@ class GameServer():
             conn_def = decoded_data["def"]
             quest_num = decoded_data["questNumber"]
             task_idx = decoded_data["taskSelected"]
-            mask_start_pos = (decoded_data["maskTop"] + 1, decoded_data["maskLeft"] + 1)
+            mask_start_pos = (decoded_data["maskTop"], decoded_data["maskLeft"])
             mask_img, origin_region, label = self.quest_generator.get_mask_questions(conn_def, quest_num, task_idx, mask_start_pos)
             
             msg = self.suggest_game_handler.get_msg_task_request(conn_def,
@@ -138,7 +139,7 @@ class GameServer():
             # timeout for display in client side
             # time.sleep(self.sleep_time)
             
-        elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
+        elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):            
             conn_def = decoded_data["def"]
             quest_num = decoded_data["questNumber"]
             answer = decoded_data["answer"]
@@ -172,6 +173,7 @@ class GameServer():
                                    "serverAnswer": server_answer,
                                    "numberBlockOpened": player.number_block_opened
                                    })
+                
                     
         if(encoded_data):
             conn.send(encoded_data)
@@ -186,7 +188,10 @@ class GameServer():
                 # if no player win -> continue to the next question
                 if(winner == 0):
                     print("Broadcase pkt select task")
-                    self.broadcast(PackageDef.PKT_SELECT_TASK)   
+                    time.sleep(1)
+                    self.broadcast(PackageDef.PKT_SELECT_TASK) 
+                    
+                    self.is_send_pkt_round_result = False   
                 else:
                     self.broadcast(PackageDef.PKT_END_GAME, winner=winner)
         
@@ -225,8 +230,11 @@ class GameServer():
         for player in self.players:
             if(quest_num not in player.player_record):
                 is_send = False
-                
+        
+        is_send = is_send and not self.is_send_pkt_round_result
         if(is_send):
+            self.is_send_pkt_round_result = True
+            
             player1 = self.players[0]
             player2 = self.players[1]
             quest_info_player1 = player1.player_record[quest_num]

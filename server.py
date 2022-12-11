@@ -2,10 +2,12 @@ import socket
 from _thread import *
 import random
 import time
+
 from msg import MessageHandler, PackageDef
 from question import QuestionGenerator
 from suggest_game import SuggestGameHandler
 from player import ClientPlayer
+from mm_server import MMConnection
 
 class GameServer():
     def __init__(self, host, port):
@@ -26,6 +28,9 @@ class GameServer():
         
         # init suggest game player handler
         self.suggest_game_handler = SuggestGameHandler()
+        
+        # init communicator between our server and matchmaking server
+        self.mm_com = MMConnection()
         
         # gameplay control
         self.max_players = 2

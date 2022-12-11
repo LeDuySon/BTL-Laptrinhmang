@@ -7,6 +7,7 @@ import onnxruntime as ort
 class NumberGuesser():
     """
     Refer: https://github.com/onnx/models/tree/main/vision/classification/mnist
+    Download checkpoints: https://github.com/onnx/models/blob/main/vision/classification/mnist/model/mnist-12.onnx
     """
     def __init__(self, checkpoint_path):
         self.image_size = (28, 28)
@@ -18,11 +19,12 @@ class NumberGuesser():
         return ort_sess
     
     def preprocess_image(self, image):
+        image[image == 2] = 0
         if(len(image.shape) == 1):
             img_size = int(math.sqrt(image.shape[0]))
             image = image.reshape((img_size, img_size))
-            image = cv2.resize(image.astype(np.float32), self.image_size)
             
+        image = cv2.resize(image.astype(np.float32), self.image_size)
         return image[np.newaxis, np.newaxis, ...]
     
     def run(self, image):
@@ -49,7 +51,7 @@ if __name__ == '__main__':
     image = df_img.iloc[idx].to_numpy()
     image[image < 50] = 0
     image[image >= 50] = 1
-    
+        
     print(guess.run(image))
     print(label.iloc[idx])
         

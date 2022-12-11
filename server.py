@@ -30,7 +30,11 @@ class GameServer():
         self.suggest_game_handler = SuggestGameHandler()
         
         # init communicator between our server and matchmaking server
+        self.is_mm_connect = False
         self.mm_com = MMConnection()
+        self.player_ids = []
+        self.server_password = None
+        self.match_id = None
         
         # gameplay control
         self.max_players = 2
@@ -80,6 +84,12 @@ class GameServer():
         # handle
         encoded_data = None
         if(pkt_type == PackageDef.PKT_HELLO):
+            user_id = decoded_data["user_id"]
+            password = decoded_data["password"]
+            
+            if(user_id not in self.player_ids or password != self.password):
+                conn.close()
+            
             msg = {
                     "def": self.address_to_def[address], 
                     "acceptStatus": 1 if self.num_players <= self.max_players else 0,
@@ -155,6 +165,17 @@ class GameServer():
                     # if answer right, increase score
                     player.current_score += 1
                     
+                    # send mm server
+                    mm_data = {
+                        "result": 2,
+                        "match": self.match_id,
+                        "status": 1,
+                        "id1": self.players[0].current_score,
+                        "id2": self.players[1].current_score
+                        }
+                    
+                    self.mm_com.update_to_server(mm_data)
+                    
                 # send PKT_ANSWER_CHECKED
                 msg = {
                     "def": conn_def, 
@@ -223,6 +244,10 @@ class GameServer():
                 time.sleep(1)
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_END_GAME, msg)
                 
+                # send to mm server
+                mm_data = {"result": 3, "match": self.match_id}
+                self.mm_com.update_to_server(mm_data)
+                
             conn.sendall(encoded_data)
             
     def send_round_results(self, quest_num):
@@ -275,10 +300,27 @@ class GameServer():
                 return player.player_order
         
         return 0 # no one win
+    
+    def mm_server_handler(self, conn, addr):
+        while True:
+            if(not self.mm_com.is_server_created):
+                data = self.mm_com.wait_mm_request(conn)
+                if(data):
+                    self.match_id = data["match"]
+                    self.player_ids = [data["id1"], data["id2"]]
+                    self.server_password = data["passwd"]
+                else:
+                    print("Something wrong")
+
+            print(f"Receive data from {addr}")
+            # run main logic
                 
     def accept_connections(self):
         conn, address = self.server_socket.accept()
         print('Connected to: ' + address[0] + ':' + str(address[1]))
+        if(not self.is_mm_connect):
+            self.is_mm_connect = True
+            start_new_thread(self.mm_server_handler, (conn, address))
         
         self.num_players += 1
         print("Current player: ", self.num_players)
@@ -295,6 +337,10 @@ class GameServer():
         
         if(self.num_players == 2):
             self.game_start = True
+            
+            # send to mm server
+            mm_data = {"result": 1, "match": self.match_id}
+            self.mm_com.update_to_server(mm_data)
         
         start_new_thread(self.client_handler, (conn, address))
     

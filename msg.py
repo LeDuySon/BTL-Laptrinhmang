@@ -25,7 +25,12 @@ class Decoder():
         data_length = int.from_bytes(data[4:8], byteorder=self.byteorder)
         recv_data = data[8:8 + data_length]
         
-        if(pkt_type == PackageDef.PKT_TASK_SELECTED):
+        if(pkt_type == PackageDef.PKT_HELLO):
+            decoded_data = {
+                "user_id": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
+                "password": int.from_bytes(recv_data[4:8], byteorder=self.byteorder),
+            } 
+        elif(pkt_type == PackageDef.PKT_TASK_SELECTED):
             decoded_data = {
                 "def": int.from_bytes(recv_data[0:4], byteorder=self.byteorder),
                 "questNumber": int.from_bytes(recv_data[4:8], byteorder=self.byteorder),

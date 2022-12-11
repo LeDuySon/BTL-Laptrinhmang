@@ -158,7 +158,7 @@ class SuggestGameHandler():
         return unmask_val
     
     def add_encoded_msg(self, encoded_msg, conn_def, quest_num):
-        self.current_quest += 1 
+        self.current_quest += 1 # total request to this func of all players
         if(self.current_quest % 2 == 0): 
             self.game_start = True
         
@@ -169,14 +169,18 @@ class SuggestGameHandler():
             self.game_start = False
             for player_id, data in self.encoded_msg_container.items():
                 conn = self.player2conn[player_id]
+                print("Length data: ", len(data))
                 encoded_data = data[quest_num - 1] # idx start from 0
                 
                 conn.sendall(encoded_data)
                 
     def check_answer(self, conn_def, quest_number, answer):
-        server_answer = self.quest_container[conn_def][quest_number - 1]["label"]
+        player_id = self.player1.player_id if self.player2.player_id == conn_def else self.player2.player_id
+        server_answer = self.quest_container[player_id][quest_number - 1]["label"]
         
         check_result = 0 # 100 no answer, 0 wrong, 1 right
+        
+        print(f"Receive answer {answer}, server answer {server_answer}")
         if(answer == int(server_answer)):
             check_result = 1
         elif(answer == 100):

@@ -80,11 +80,11 @@ class Encoder():
                         length += len(item) * (4 + item[0]["image"].shape[0])
                         
                     elif(package_type == PackageDef.PKT_SUGGEST_QUESTIONS):
-                        print("Test len item: ", len(item))
+                        # print("Test len item: ", len(item))
                         length += len(item) * 8
                         # TEST
                         for i in item:
-                            print("Test num ones: ", i["num_ones"])
+                            # print("Test num ones: ", i["num_ones"])
                             length += 2 * i["num_ones"]
     
                 else:
@@ -106,7 +106,7 @@ class Encoder():
         
         # data
         for k, item in data.items():
-            print(f"Encode data {k}")
+            # print(f"Encode data {k}")
             if(isinstance(item, str)):
                 encoded_data.extend(item.encode())
             elif(isinstance(item, int)):

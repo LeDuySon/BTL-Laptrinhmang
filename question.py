@@ -38,6 +38,8 @@ class QuestionGenerator:
             "numberTask": self.number_task
         }
         
+        print("Package 3: ", send_msg)
+        
         send_questions = []
         for idx, row in questions.iterrows():
             label = row["label"]
@@ -52,6 +54,7 @@ class QuestionGenerator:
     
     def get_mask_questions(self, conn_def, quest_num, task_idx, mask_start_pos):
         selected_question = self.questions[conn_def][quest_num - 1]["taskList"][task_idx] # start from
+        # print("Selected quest: ", selected_question)
         label = selected_question["label"]
         
         image = selected_question["image"] 

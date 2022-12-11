@@ -4,10 +4,10 @@ import time
 
 class MMConnection:
 	def __init__(self, 
-              	mm_ip,
-                mm_port,
-                game_server_public_ip,
-                game_server_public_port,
+              	mm_ip=None,
+                mm_port=None,
+                game_server_public_ip=None,
+                game_server_public_port=None,
                 game_server_local_ip="localhost",
                 game_server_local_port=6969
                 ):

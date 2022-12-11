@@ -136,7 +136,7 @@ class GameServer():
             encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_RESULTS, msg)
             
             # timeout for display in client side
-            time.sleep(self.sleep_time)
+            # time.sleep(self.sleep_time)
             
         elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             conn_def = decoded_data["def"]
@@ -179,11 +179,13 @@ class GameServer():
         if(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             # check if both player are submit results then we can send PKT_ROUND_RESULT
             is_send = self.send_round_results(quest_num)
+            print(f"Run in {is_send}", player.player_id)
             
             if(is_send):
                 winner = self.check_game_winner()
                 # if no player win -> continue to the next question
                 if(winner == 0):
+                    print("Broadcase pkt select task")
                     self.broadcast(PackageDef.PKT_SELECT_TASK)   
                 else:
                     self.broadcast(PackageDef.PKT_END_GAME, winner=winner)
@@ -191,7 +193,6 @@ class GameServer():
     def broadcast(self, pkt_type, **kwargs):
         for idx, conn in enumerate(self.connections):
             addr = self.addresses[idx]
-            player = self.address2player[addr]
             conn_def = self.address_to_def[addr] 
             print(f"Send message to {addr}")
             
@@ -210,9 +211,11 @@ class GameServer():
                 msg = {
                     "def": conn_def,
                     "matchWinner": kwargs["winner"],
-                    "playerXPoint": player.current_score
+                    "player1Point": self.players[0].current_score,
+                    "player2Point": self.players[1].current_score,
                 }
                 
+                time.sleep(1)
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_END_GAME, msg)
                 
             conn.sendall(encoded_data)
@@ -224,23 +227,32 @@ class GameServer():
                 is_send = False
                 
         if(is_send):
+            player1 = self.players[0]
+            player2 = self.players[1]
+            quest_info_player1 = player1.player_record[quest_num]
+            quest_info_player2 = player2.player_record[quest_num]
+            
             for player in self.players:
                 conn = player.conn
-                quest_info = player.player_record[quest_num]
                 
                 msg = {
                     "def": player.player_id,
                     "questNumber": quest_num,
                     "code": 1,
                     "winner": self.check_winner_of_question(quest_num),
-                    "playerXPoint": player.current_score,
-                    "playerXResult": quest_info["result"],
-                    "playerXRevealed": quest_info["numberBlockOpened"],
+                    "player1Point": player1.current_score,
+                    "player1Result": quest_info_player1["result"],
+                    "player1Revealed": quest_info_player1["numberBlockOpened"],
+                    "player2Point": player2.current_score,
+                    "player2Result": quest_info_player2["result"],
+                    "player2Revealed": quest_info_player2["numberBlockOpened"],
                     "errorLen": 0,
                     "error": ""
                 }
                 
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_ROUND_RESULT, msg)
+                
+                time.sleep(1)
                 conn.sendall(encoded_data)
         
         return is_send
@@ -291,6 +303,7 @@ class GameServer():
                     self.game_start = False
                     # send start signal to all client
                     time.sleep(1)
+                    print("LMAO")
                     self.broadcast(PackageDef.PKT_START)
                     # send question to all client
                     self.broadcast(PackageDef.PKT_SELECT_TASK)   

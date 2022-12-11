@@ -30,7 +30,7 @@ class NumberGuesser():
         image = cv2.resize(image.astype(np.float32), self.image_size)
         return image[np.newaxis, np.newaxis, ...]
     
-    def softmax(self, x):
+    def softmax(self, x):   
         """Compute softmax values for each sets of scores in x."""
         return np.exp(x) / np.sum(np.exp(x), axis=0)
 

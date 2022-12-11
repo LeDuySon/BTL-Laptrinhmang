@@ -13,6 +13,9 @@ class NumberGuesser():
         self.image_size = (28, 28)
         self.model = self.load_model(checkpoint_path)
         
+        # threshold for determine guess or not
+        self.threshold = 0.9
+        
     def load_model(self, path):
         ort_sess = ort.InferenceSession(path)
         
@@ -27,14 +30,21 @@ class NumberGuesser():
         image = cv2.resize(image.astype(np.float32), self.image_size)
         return image[np.newaxis, np.newaxis, ...]
     
+    def softmax(self, x):
+        """Compute softmax values for each sets of scores in x."""
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
+
     def run(self, image):
         prep_img = self.preprocess_image(image)
-        outputs = self.model.run(None, {'Input3': prep_img})
+        outputs = self.model.run(None, {'Input3': prep_img})[0]
         
-        print(outputs)
+        probs = self.softmax(outputs[0])
+        idx = np.argmax(probs)
         
-        return np.argmax(outputs)
-    
+        if(probs[idx] >= self.threshold):
+            return idx
+        return 100
+
 if __name__ == '__main__':
     guess = NumberGuesser("checkpoints/mnist-12.onnx")
     
@@ -47,7 +57,7 @@ if __name__ == '__main__':
     df_img = df.iloc[:, 1:]
     
     
-    idx = 61
+    idx = 5
     image = df_img.iloc[idx].to_numpy()
     image[image < 50] = 0
     image[image >= 50] = 1

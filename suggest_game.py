@@ -177,7 +177,7 @@ class SuggestGameHandler():
         server_answer = self.quest_container[conn_def][quest_number - 1]["label"]
         
         check_result = 0 # 100 no answer, 0 wrong, 1 right
-        if(answer == 1):
+        if(answer == int(server_answer)):
             check_result = 1
         elif(answer == 100):
             check_result = -1

@@ -34,7 +34,8 @@ class GameServer():
         self.connections = []
         self.addresses = []
         self.game_start = False
-        self.end_score = 1
+        self.end_score = 3
+        self.sleep_time = 0
         
         self.players = []
         self.address2player = {}
@@ -98,8 +99,14 @@ class GameServer():
                                                                 )
             
             encoded_msg = self.msg_handler.encode(PackageDef.PKT_TASK_REQUEST, msg)
+            
+            # timeout for display in client side
+            # print("Start sleep") 
+            # time.sleep(10)
+            # print("Finish sleep")
+            
             self.suggest_game_handler.add_encoded_msg(encoded_msg, conn_def, quest_num) 
-        
+                    
         elif(pkt_type == PackageDef.PKT_SUGGEST_ANSWERS):
             conn_def = decoded_data["def"]
             quest_num = decoded_data["questNumber"]
@@ -122,6 +129,9 @@ class GameServer():
             print("MSG: ", msg)
             
             encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_RESULTS, msg)
+            
+            # timeout for display in client side
+            time.sleep(self.sleep_time)
             
         elif(pkt_type == PackageDef.PKT_ANSWER_SUBMIT):
             conn_def = decoded_data["def"]
@@ -166,11 +176,17 @@ class GameServer():
             is_send = self.send_round_results(quest_num)
             
             if(is_send):
-                pass      
+                winner = self.check_game_winner()
+                # if no player win -> continue to the next question
+                if(winner == 0):
+                    self.broadcast(PackageDef.PKT_SELECT_TASK)   
+                else:
+                    self.broadcast(PackageDef.PKT_END_GAME, winner=winner)
         
-    def broadcast(self, pkt_type):
+    def broadcast(self, pkt_type, **kwargs):
         for idx, conn in enumerate(self.connections):
             addr = self.addresses[idx]
+            player = self.address2player[addr]
             conn_def = self.address_to_def[addr] 
             print(f"Send message to {addr}")
             
@@ -184,6 +200,15 @@ class GameServer():
             elif(pkt_type == PackageDef.PKT_SELECT_TASK):
                 msg = self.quest_generator.generate(conn_def)
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_SELECT_TASK, msg)
+                                
+            elif(pkt_type == PackageDef.PKT_END_GAME):
+                msg = {
+                    "def": conn_def,
+                    "matchWinner": kwargs["winner"],
+                    "playerXPoint": player.current_score
+                }
+                
+                encoded_data = self.msg_handler.encode(PackageDef.PKT_END_GAME, msg)
                 
             conn.sendall(encoded_data)
             
@@ -202,7 +227,7 @@ class GameServer():
                     "def": player.player_id,
                     "questNumber": quest_num,
                     "code": 1,
-                    "winner": self.check_winner(quest_num),
+                    "winner": self.check_winner_of_question(quest_num),
                     "playerXPoint": player.current_score,
                     "playerXResult": quest_info["result"],
                     "playerXRevealed": quest_info["numberBlockOpened"],
@@ -215,9 +240,16 @@ class GameServer():
         
         return is_send
                 
-    def check_winner(self, quest_num):
+    def check_winner_of_question(self, quest_num):
         # return player order
         return 1
+    
+    def check_game_winner(self):
+        for player in self.players:
+            if(player.current_score >= self.end_score):
+                return player.player_order
+        
+        return 0 # no one win
                 
     def accept_connections(self):
         conn, address = self.server_socket.accept()

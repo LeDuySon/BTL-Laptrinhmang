@@ -9,8 +9,8 @@ class MMConnection:
 	def __init__(self, 
               	mm_ip="104.194.240.16",
                 mm_port=8080,
-                game_server_public_ip="tcp://6.tcp.ngrok.io",
-                game_server_public_port=19563,
+                game_server_public_ip="tcp://0.tcp.ngrok.io",
+                game_server_public_port=18816,
                 game_server_local_ip="localhost",
                 game_server_local_port=6969
                 ):
@@ -51,10 +51,14 @@ class MMConnection:
 		asyncio.run(self.update(data))
 	
 	async def update(self, data):
-		async with websockets.connect(self.update_endpoint) as websocket:
-			await websocket.send(json.dumps(data))
-			msg = await websocket.recv()
-			print(msg)
+		try:
+			async with websockets.connect(self.update_endpoint) as websocket:
+				await websocket.send(json.dumps(data))
+				msg = await websocket.recv()
+				print("Receive message from mm server: ", msg)
+		except Exception as e:
+			print(e)
+			
    
 if __name__ == '__main__':
 	mmConnection = MMConnection()

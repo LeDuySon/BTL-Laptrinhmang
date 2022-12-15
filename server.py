@@ -88,11 +88,11 @@ class GameServer():
         # handle
         encoded_data = None
         if(pkt_type == PackageDef.PKT_HELLO):
-            user_id = decoded_data["user_id"]
-            password = decoded_data["password"]
+            # user_id = decoded_data["user_id"]
+            # password = decoded_data["password"]
             
-            if(user_id not in self.player_ids or password != self.password):
-                conn.close()
+            # if(user_id not in self.player_ids or password != self.server_password):
+            #     conn.close()
             
             msg = {
                     "def": self.address_to_def[address], 
@@ -313,10 +313,13 @@ class GameServer():
                     self.match_id = data["match"]
                     self.player_ids = [data["id1"], data["id2"]]
                     self.server_password = data["passwd"]
+                    
+                    print(data)
                 else:
                     print("Something wrong")
 
-            print(f"Receive data from {addr}")
+            # print(f"Receive data from {addr}")
+                break
             # run main logic
                 
     def accept_connections(self):
@@ -325,6 +328,8 @@ class GameServer():
         if(not self.is_mm_connect):
             self.is_mm_connect = True
             start_new_thread(self.mm_server_handler, (conn, address))
+            
+            return
         
         self.num_players += 1
         print("Current player: ", self.num_players)

@@ -8,6 +8,7 @@ from question import QuestionGenerator
 from suggest_game import SuggestGameHandler
 from player import ClientPlayer
 from mm_server import MMConnection
+from server_ui import ServerUI
 
 class GameServer():
     def __init__(self, host, port):
@@ -35,6 +36,9 @@ class GameServer():
         self.player_ids = []
         self.server_password = None
         self.match_id = None
+        
+        # init gameserver ui 
+        self.server_ui = ServerUI()
         
         # gameplay control
         self.max_players = 2

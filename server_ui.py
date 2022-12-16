@@ -8,9 +8,10 @@ class ServerUI:
 
     def __init__(self):
         self.main_windows = None
-        self.main_windows_size = ['1000', '712']
+        self.main_windows_size = ['1000', '820']
         self.main_windows_resizable = [False, True]
 
+        self.players = None
         # This frame is used to display players' score
         self.score_frame = None
         self.player1_score = None
@@ -27,7 +28,7 @@ class ServerUI:
         self.task_selected_frame = None
 
         # This frame is used to display playing scene
-        self.playing_frame = None
+        self.suggest_playing_frame = None
         
         self.color = ['white', 'gray', 'black']
 
@@ -40,11 +41,12 @@ class ServerUI:
         self.main_windows.resizable(self.main_windows_resizable[0], self.main_windows_resizable[1])
         self.main_windows.title("Guess Number")
         ttk.Label(self.main_windows, text = "Guess Number", font = ("Arial", 20)).pack()
+        self.create_score_frame()
         self.create_waiting_frame()
         self.main_windows.mainloop()
 
-    def create_score_frame(self, target_frame):
-        self.score_frame = tk.Frame(target_frame)
+    def create_score_frame(self):
+        self.score_frame = tk.Frame(self.main_windows)
         self.score_frame.pack(expand = False)
 
         ttk.Label(self.score_frame, text = "", font = 'Arial 12').grid(column=2, row=0, padx=0, pady=0)
@@ -82,8 +84,10 @@ class ServerUI:
         
     def display_task_list_frame_all(self, infos):
         if (not self.select_task_frame):
-                self.create_select_tasks_frame()
-                
+            self.create_select_tasks_frame()
+        
+        self.display_score(self.players[0].current_score, self.players[1].current_score)
+        
         for info in infos:
             playerOrder, taskList = info 
             self.display_task_list_frame(playerOrder, taskList)
@@ -125,7 +129,8 @@ class ServerUI:
     def display_selected_task_frame(self, infos):
         if (not self.task_selected_frame):
             self.create_task_selected_frame()
-            
+        
+        self.display_score(self.players[0].current_score, self.players[1].current_score)
         for info in infos:
             playerOrder, maskImg = info
             self.display_selected_task_each(playerOrder, maskImg)
@@ -136,10 +141,10 @@ class ServerUI:
             col_idx += 1
         
         ttk.Label(self.task_selected_frame, text = f"Player {playerOrder} selected", font = 'Arial 12').grid(column=col_idx, row=4, padx=0, pady=0)
-        self.display_selected_task(col_idx, 400, 400, [2, 2], 'Task ', taskSelected["size"], taskSelected["image"], 400, 30, taskSelected["label"])
+        self.display_selected_task(self.task_selected_frame, col_idx, 400, 400, [2, 2], 'Task ', taskSelected["size"], taskSelected["image"], 400, 30, taskSelected["label"])
             
-    def display_selected_task(self,col_idx, w, h, offset, title, imageSize, image, valueW, valueH, value):
-        canvas = tk.Canvas(self.task_selected_frame, width = w + offset[0], height = h + offset[1] + valueH)
+    def display_selected_task(self, target_frame, col_idx, w, h, offset, title, imageSize, image, valueW, valueH, value=None):
+        canvas = tk.Canvas(target_frame, width = w + offset[0], height = h + offset[1] + valueH)
         canvas.grid(column=col_idx, row=5, padx=0, pady=0)
         for row in range(imageSize):
             for col in range(imageSize):
@@ -148,35 +153,64 @@ class ServerUI:
                 canvas.create_rectangle(imageStartPos, imageEndPos, fill = self.color[image[row * imageSize + col]])
                 if(value):
                     canvas.create_text((200, 415), text = "Value = " + str(value), font = 'Arial 12')
+    
+    def create_suggest_playing_frame(self):
+        if (self.suggest_playing_frame):
+            self.suggest_playing_frame.destroy()
 
-    def create_playing_frame(self):
-        self.playing_frame = tk.Frame(self.main_windows)
-        self.playing_frame.pack(expand = False)
-        separator = ttk.Separator(self.playing_frame, orient='horizontal')
-        separator.pack(fill='x')
-        ttk.Label(self.playing_frame, text = "Playing", font = ("Arial", 16)).pack()
-        self.create_score_frame()
-        self.display_score(2, 3)
-        separator = ttk.Separator(self.playing_frame, orient='horizontal')
-        separator.pack(fill='x')
+        self.suggest_playing_frame = ttk.Frame(self.main_windows)
+        self.suggest_playing_frame.pack()
+        
+        ttk.Label(self.suggest_playing_frame, text = "Playing Phase", font = ("Arial", 16)).grid(column=1, row=0, padx=0, pady=0)
+        
+    def display_suggest_playing_frame(self, infos):
+        if (not self.suggest_playing_frame):
+            self.create_suggest_playing_frame()
+        
+        self.display_score(self.players[0].current_score, self.players[1].current_score)
+        for info in infos:
+            playerOrder, maskImg = info
+            self.display_suggest_playing_each(playerOrder, maskImg)
+        
+    def display_suggest_playing_each(self, playerOrder, taskSelected):
+        col_idx = int(playerOrder) - 1
+        if(int(playerOrder) == 2):
+            col_idx += 1
+        
+        ttk.Label(self.suggest_playing_frame, text = f"Player {playerOrder}", font = 'Arial 12').grid(column=col_idx, row=4, padx=0, pady=0)
+        self.display_selected_task(self.suggest_playing_frame, col_idx, 400, 400, [2, 2], 'Task ', taskSelected["size"], taskSelected["image"], 400, 30)
         
     def change_from_waiting_to_select_tasks_frame(self):
         self.waiting_frame.destroy()
         self.create_playing_frame()
         
     def change_from_select_tasks_to_task_selected_frame(self, infos):
-        self.select_task_frame.destroy()
+        if(self.select_task_frame):
+            self.select_task_frame.destroy()
+        self.task_selected_frame = None
         self.display_selected_task_frame(infos)
 
     def change_from_waiting_to_select_tasks_frame(self, taskList):
         self.waiting_frame.destroy()
         self.display_task_list_frame_all(taskList)
-
-    def change_from_playing_to_waiting_frame(self):
-        self.playing_frame.destroy()
-        self.score_frame.destroy()
-        self.create_waiting_frame()
         
+    def change_from_selected_task_to_select_tasks_frame(self, taskList):
+        if(self.select_task_frame):
+            self.select_task_frame.destroy()
+            self.select_task_frame = None
+        if(self.task_selected_frame):
+            self.task_selected_frame.destroy()
+        if(self.suggest_playing_frame):
+            self.suggest_playing_frame.destroy()
+            self.suggest_playing_frame = None
+            
+        self.display_task_list_frame_all(taskList)
+        
+    def change_from_task_selected_to_play_frame(self, taskList):
+        if(self.task_selected_frame):
+            self.task_selected_frame.destroy()
+        self.task_selected_frame = None
+        self.display_suggest_playing_frame(taskList)
     
 
 

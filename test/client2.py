@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 import threading
-from guess_number import NumberGuesser
+from test.guess_number import NumberGuesser
 
 # define a number with mapping array
 class QuestionNumber:

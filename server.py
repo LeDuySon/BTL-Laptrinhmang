@@ -50,12 +50,14 @@ class GameServer():
         self.end_score = 3
         self.sleep_time = 0
         self.is_send_pkt_round_result = False
+        self.is_one_player_submit = False
         
         self.players = []
         self.address2player = {}
         
         # for visualize in ui
         self.selected_tasks = []
+        self.suggested_results = []
                 
     def init_server(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -83,6 +85,8 @@ class GameServer():
     def logic_handle(self, conn, address, data):
         # get player
         player = self.address2player[address]
+        if(len(self.players) == 2):
+            other_player = self.players[0] if player.player_id != self.players[0].player_id else self.players[1]
         # decode msg 
         pkt_type, data_length, decoded_data = self.msg_handler.decode(data)
         
@@ -145,7 +149,7 @@ class GameServer():
                                                                                 index,
                                                                                 answer)
             
-            msg = self.suggest_game_handler.get_msg_suggest_results(conn_def,
+            msg, unmask_img = self.suggest_game_handler.get_msg_suggest_results(conn_def,
                                                                     quest_num,
                                                                     index,
                                                                     num_quests,
@@ -154,6 +158,8 @@ class GameServer():
             print("MSG: ", msg)
             
             encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_RESULTS, msg)
+            
+            self.suggested_results.append((player.player_order, {"image": unmask_img, "size": self.image_size[0]}))
             
             # timeout for display in client side
             # time.sleep(self.sleep_time)
@@ -166,25 +172,22 @@ class GameServer():
             
             if(check_result == -1):
                 # send PKT_SUGGEST_QUESTIONS
-                msg = self.suggest_game_handler.get_msg_suggest_quests(conn_def, quest_num)
-                encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_QUESTIONS, msg)
+                time.sleep(3)
+                print(f"aaaaaaaaaaaaaaaaaaa {self.is_one_player_submit}")
+                if(not self.is_one_player_submit):
+                    msg = self.suggest_game_handler.get_msg_suggest_quests(conn_def, quest_num)
+                    encoded_data = self.msg_handler.encode(PackageDef.PKT_SUGGEST_QUESTIONS, msg)
+                else:
+                    check_result = 1 if other_player.player_record[quest_num]["result"] == 0 else 0
+                    player.set_record({"questNumber": quest_num,
+                                        "result": check_result,
+                                        "clientAnswer": int(answer),
+                                        "serverAnswer": server_answer,
+                                        "numberBlockOpened": player.number_block_opened
+                                        })
                 
             elif(check_result == 1 or check_result == 0):
-                if(check_result == 1):
-                    # if answer right, increase score
-                    player.current_score += 1
-                    
-                    # send mm server
-                    mm_data = {
-                        "result": 2,
-                        "match": self.match_id,
-                        "status": 1,
-                        "id1": self.players[0].current_score,
-                        "id2": self.players[1].current_score
-                        }
-                    
-                    self.mm_com.update_to_server(mm_data)
-                    
+                self.is_one_player_submit = True
                 # send PKT_ANSWER_CHECKED
                 msg = {
                     "def": conn_def, 
@@ -229,6 +232,11 @@ class GameServer():
             if(len(self.selected_tasks) == 2):
                 self.server_ui.change_from_select_tasks_to_task_selected_frame(self.selected_tasks)
                 self.selected_tasks = []
+                
+        elif(pkt_type == PackageDef.PKT_SUGGEST_ANSWERS):
+            if(len(self.suggested_results) == 2):
+                self.server_ui.change_from_task_selected_to_play_frame(self.suggested_results)
+                self.suggested_results = []
         
     def broadcast(self, pkt_type, **kwargs):
         select_tasks = []
@@ -272,16 +280,21 @@ class GameServer():
         
         # for visualize
         if(pkt_type == PackageDef.PKT_SELECT_TASK):
-            self.server_ui.change_from_waiting_to_select_tasks_frame(select_tasks)
+            if(self.quest_generator.questions_counter[player.player_id] == 1):
+                self.server_ui.change_from_waiting_to_select_tasks_frame(select_tasks)
+            else:
+                self.server_ui.change_from_selected_task_to_select_tasks_frame(select_tasks)
             
     def send_round_results(self, quest_num):
         is_send = True 
+        
         for player in self.players:
             if(quest_num not in player.player_record):
                 is_send = False
         
         is_send = is_send and not self.is_send_pkt_round_result
         if(is_send):
+            self.is_one_player_submit = False
             self.is_send_pkt_round_result = True
             
             player1 = self.players[0]
@@ -289,6 +302,7 @@ class GameServer():
             quest_info_player1 = player1.player_record[quest_num]
             quest_info_player2 = player2.player_record[quest_num]
             
+            winner = self.check_winner_of_question(quest_num)
             for player in self.players:
                 conn = player.conn
                 
@@ -296,7 +310,7 @@ class GameServer():
                     "def": player.player_id,
                     "questNumber": quest_num,
                     "code": 1,
-                    "winner": self.check_winner_of_question(quest_num),
+                    "winner": winner,
                     "player1Point": player1.current_score,
                     "player1Result": quest_info_player1["result"],
                     "player1Revealed": quest_info_player1["numberBlockOpened"],
@@ -307,6 +321,8 @@ class GameServer():
                     "error": ""
                 }
                 
+                print(msg)
+                
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_ROUND_RESULT, msg)
                 
                 time.sleep(1)
@@ -316,7 +332,50 @@ class GameServer():
                 
     def check_winner_of_question(self, quest_num):
         # return player order
-        return 1
+        results = []
+        for player in self.players:
+            results.append(player.player_record[quest_num]["result"])
+        
+        player1 = self.players[0] 
+        player2 = self.players[1]
+        playerWin = None
+        # if two player guess right  
+        if(results[0] == 1 and results[1] == 1):
+            player1_quest_idx = self.suggest_game_handler.quest_index_counter[f"{player1.player_id}_{quest_num}"]
+            player2_quest_idx = self.suggest_game_handler.quest_index_counter[f"{player2.player_id}_{quest_num}"]
+            # check num index in suggest game
+            if(player1_quest_idx == player2_quest_idx):
+                playerWin = 0
+            else:
+                if(player1_quest_idx < player2_quest_idx):
+                    playerWin = player1.player_order
+                    player1.current_score += 1
+                else:
+                    playerWin = player2.player_order
+                    player2.current_score += 1
+        # if one player wrong
+        else:
+            if(results[0] == 1):
+                playerWin = player1.player_order
+                player1.current_score += 1
+            else:
+                playerWin = player2.player_order
+                player2.current_score += 1
+                
+        # update score to mm
+        mm_data = {
+                "result": 2,
+                "match": self.match_id,
+                "status": 1,
+                "id1": player1.current_score,
+                "id2": player2.current_score
+                }
+        
+        print("mm_data: ", mm_data)
+        
+        self.mm_com.update_to_server(mm_data)
+                                                     
+        return playerWin
     
     def check_game_winner(self):
         for player in self.players:
@@ -366,6 +425,7 @@ class GameServer():
         
         if(self.num_players == 2):
             self.game_start = True
+            self.server_ui.players = self.players
             
             # send to mm server
             mm_data = {"result": 1, "match": self.match_id}

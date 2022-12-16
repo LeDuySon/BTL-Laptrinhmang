@@ -108,10 +108,10 @@ class SuggestGameHandler():
             "suggestions": None
         }
         
-        unmask_val = self.get_unmask_image(conn_def, quest_num, index, check_results)
+        unmask_val, mask_img = self.get_unmask_image(conn_def, quest_num, index, check_results)
         msg["suggestions"] = unmask_val
         
-        return msg
+        return msg, mask_img
         
     def get_unmask_image(self, 
                          conn_def,
@@ -155,7 +155,7 @@ class SuggestGameHandler():
             quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][y - mask_start_pos[0]][x - mask_start_pos[1]]
             unmask_val.append(quest_info["mask_img"][y*self.image_size[0] + x])
                 
-        return unmask_val
+        return unmask_val, quest_info["mask_img"]
     
     def add_encoded_msg(self, encoded_msg, conn_def, quest_num):
         self.current_quest += 1 # total request to this func of all players

@@ -135,7 +135,7 @@ class ServerUI:
         if(int(playerOrder) == 2):
             col_idx += 1
         
-        ttk.Label(self.task_selected_frame, text = f"Player {playerOrder}", font = 'Arial 12').grid(column=col_idx, row=4, padx=0, pady=0)
+        ttk.Label(self.task_selected_frame, text = f"Player {playerOrder} selected", font = 'Arial 12').grid(column=col_idx, row=4, padx=0, pady=0)
         self.display_selected_task(col_idx, 400, 400, [2, 2], 'Task ', taskSelected["size"], taskSelected["image"], 400, 30, taskSelected["label"])
             
     def display_selected_task(self,col_idx, w, h, offset, title, imageSize, image, valueW, valueH, value):

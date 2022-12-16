@@ -154,7 +154,7 @@ class SuggestGameHandler():
             
             quest_info["mask_img"][y*self.image_size[0] + x] = quest_info["origin_region"][y - mask_start_pos[0]][x - mask_start_pos[1]]
             unmask_val.append(quest_info["mask_img"][y*self.image_size[0] + x])
-                
+        print("Unmask val: ", unmask_val)
         return unmask_val, quest_info["mask_img"]
     
     def add_encoded_msg(self, encoded_msg, conn_def, quest_num):

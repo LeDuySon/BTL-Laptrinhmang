@@ -31,7 +31,7 @@ class GameServer():
         self.suggest_game_handler = SuggestGameHandler()
         
         # init communicator between our server and matchmaking server
-        self.is_mm_connect = True
+        self.is_mm_connect = False
         self.mm_com = MMConnection()
         self.player_ids = []
         self.server_password = None
@@ -284,6 +284,8 @@ class GameServer():
                 self.server_ui.change_from_waiting_to_select_tasks_frame(select_tasks)
             else:
                 self.server_ui.change_from_selected_task_to_select_tasks_frame(select_tasks)
+        elif(pkt_type == PackageDef.PKT_END_GAME):
+            self.server_ui.change_to_end_frame()
             
     def send_round_results(self, quest_num):
         is_send = True 
@@ -408,6 +410,10 @@ class GameServer():
             self.is_mm_connect = True
             start_new_thread(self.mm_server_handler, (conn, address))
             
+            return
+
+        if(self.num_players == 2):
+            conn.close()
             return
         
         self.num_players += 1

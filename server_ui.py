@@ -30,6 +30,9 @@ class ServerUI:
         # This frame is used to display playing scene
         self.suggest_playing_frame = None
         
+        # display end game
+        self.end_game_frame = None
+        
         self.color = ['white', 'gray', 'black']
 
     def start_UI_thread(self):
@@ -180,6 +183,18 @@ class ServerUI:
         ttk.Label(self.suggest_playing_frame, text = f"Player {playerOrder}", font = 'Arial 12').grid(column=col_idx, row=4, padx=0, pady=0)
         self.display_selected_task(self.suggest_playing_frame, col_idx, 400, 400, [2, 2], 'Task ', taskSelected["size"], taskSelected["image"], 400, 30)
         
+    def create_end_frame(self):
+        if (self.end_game_frame):
+            self.end_game_frame.destroy()
+
+        self.end_game_frame = ttk.Frame(self.main_windows)
+        self.end_game_frame.pack()
+        
+        self.display_score(self.players[0].current_score, self.players[1].current_score)
+        
+        ttk.Label(self.end_game_frame, text = "Game Finished", font = ("Arial", 16)).grid(column=1, row=0, padx=0, pady=0)
+        ttk.Separator(self.end_game_frame, orient='horizontal').grid(column=1, row=1, padx=0, pady=0)
+        
     def change_from_waiting_to_select_tasks_frame(self):
         self.waiting_frame.destroy()
         self.create_playing_frame()
@@ -211,6 +226,19 @@ class ServerUI:
             self.task_selected_frame.destroy()
         self.task_selected_frame = None
         self.display_suggest_playing_frame(taskList)
+        
+    def change_to_end_frame(self):
+        if(self.select_task_frame):
+            self.select_task_frame.destroy()
+            self.select_task_frame = None
+        if(self.task_selected_frame):
+            self.task_selected_frame.destroy()
+            self.task_selected_frame = None
+        if(self.suggest_playing_frame):
+            self.suggest_playing_frame.destroy()
+            self.suggest_playing_frame = None
+            
+        self.create_end_frame()
     
 
 

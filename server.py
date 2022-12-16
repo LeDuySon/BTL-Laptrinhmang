@@ -31,7 +31,7 @@ class GameServer():
         self.suggest_game_handler = SuggestGameHandler()
         
         # init communicator between our server and matchmaking server
-        self.is_mm_connect = False
+        self.is_mm_connect = True
         self.mm_com = MMConnection()
         self.player_ids = []
         self.server_password = None
@@ -53,6 +53,9 @@ class GameServer():
         
         self.players = []
         self.address2player = {}
+        
+        # for visualize in ui
+        self.selected_tasks = []
                 
     def init_server(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -126,6 +129,8 @@ class GameServer():
             # print("Finish sleep")
             
             self.suggest_game_handler.add_encoded_msg(encoded_msg, conn_def, quest_num) 
+            
+            self.selected_tasks.append((player.player_order, {"image": mask_img, "label": label, "size": self.image_size[0]}))
                     
         elif(pkt_type == PackageDef.PKT_SUGGEST_ANSWERS):
             conn_def = decoded_data["def"]
@@ -219,11 +224,19 @@ class GameServer():
                     self.is_send_pkt_round_result = False   
                 else:
                     self.broadcast(PackageDef.PKT_END_GAME, winner=winner)
+                    
+        elif(pkt_type == PackageDef.PKT_TASK_SELECTED):
+            if(len(self.selected_tasks) == 2):
+                self.server_ui.change_from_select_tasks_to_task_selected_frame(self.selected_tasks)
+                self.selected_tasks = []
         
     def broadcast(self, pkt_type, **kwargs):
+        select_tasks = []
+        
         for idx, conn in enumerate(self.connections):
             addr = self.addresses[idx]
             conn_def = self.address_to_def[addr] 
+            player = self.address2player[addr]
             print(f"Send message to {addr}")
             
             encoded_data = b""
@@ -235,6 +248,9 @@ class GameServer():
                 
             elif(pkt_type == PackageDef.PKT_SELECT_TASK):
                 msg = self.quest_generator.generate(conn_def)
+                # store for visualize purposes
+                select_tasks.append((player.player_order, msg["taskList"]))
+                
                 encoded_data = self.msg_handler.encode(PackageDef.PKT_SELECT_TASK, msg)
                                 
             elif(pkt_type == PackageDef.PKT_END_GAME):
@@ -253,6 +269,10 @@ class GameServer():
                 self.mm_com.update_to_server(mm_data)
                 
             conn.sendall(encoded_data)
+        
+        # for visualize
+        if(pkt_type == PackageDef.PKT_SELECT_TASK):
+            self.server_ui.change_from_waiting_to_select_tasks_frame(select_tasks)
             
     def send_round_results(self, quest_num):
         is_send = True 
@@ -357,6 +377,9 @@ class GameServer():
         # start listen for connections
         self.server_socket.listen()
         
+        # server waited 
+        self.server_ui.start_UI_thread()
+        
         # main control
         try:
             while True:
@@ -370,6 +393,9 @@ class GameServer():
                     self.broadcast(PackageDef.PKT_START)
                     # send question to all client
                     self.broadcast(PackageDef.PKT_SELECT_TASK)   
+                    
+                    # start show game play ui
+                    # self.server_ui.change_from_waiting_to_playing_frame()
                         
         except Exception as e:
             raise e

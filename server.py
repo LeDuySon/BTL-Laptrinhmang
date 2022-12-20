@@ -95,11 +95,11 @@ class GameServer():
         # handle
         encoded_data = None
         if(pkt_type == PackageDef.PKT_HELLO):
-            # user_id = decoded_data["user_id"]
-            # password = decoded_data["password"]
+            user_id = str(decoded_data["user_id"])
+            password = str(decoded_data["password"])
             
-            # if(user_id not in self.player_ids or password != self.server_password):
-            #     conn.close()
+            if(user_id not in self.player_ids or password != self.server_password):
+                conn.close()
             
             msg = {
                     "def": self.address_to_def[address], 
@@ -392,8 +392,8 @@ class GameServer():
                 data = self.mm_com.wait_mm_request(conn)
                 if(data):
                     self.match_id = data["match"]
-                    self.player_ids = [data["id1"], data["id2"]]
-                    self.server_password = data["passwd"]
+                    self.player_ids = [str(data["id1"]), str(data["id2"])]
+                    self.server_password = str(data["passwd"])
                     
                     print(data)
                 else:

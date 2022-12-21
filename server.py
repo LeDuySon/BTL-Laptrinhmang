@@ -31,10 +31,10 @@ class GameServer():
         self.suggest_game_handler = SuggestGameHandler()
         
         # init communicator between our server and matchmaking server
-        self.is_mm_connect = False
+        self.is_mm_connect = True
         self.mm_com = MMConnection()
-        self.player_ids = []
-        self.server_password = None
+        self.player_ids = [1, 2]
+        self.server_password = 123
         self.match_id = None
         
         # init gameserver ui 
@@ -73,7 +73,12 @@ class GameServer():
     
     def client_handler(self, conn, address):
         while True:
-            data = conn.recv(4096)
+            try:
+                data = conn.recv(4096)
+            except Exception as e:
+                print(e)
+                break
+            
             if not data:
                 print("END!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 conn.close()
@@ -95,17 +100,23 @@ class GameServer():
         # handle
         encoded_data = None
         if(pkt_type == PackageDef.PKT_HELLO):
-            user_id = str(decoded_data["user_id"])
-            password = str(decoded_data["password"])
+            user_id = int(decoded_data["user_id"])
+            password = int(decoded_data["password"])
             
-            if(user_id not in self.player_ids or password != self.server_password):
-                conn.close()
+            accept_status = 1 if self.num_players <= self.max_players else 0
+            
+            if(self.server_password):
+                if(user_id not in self.player_ids or password != self.server_password):
+                    accept_status = 0
+            
             
             msg = {
                     "def": self.address_to_def[address], 
-                    "acceptStatus": 1 if self.num_players <= self.max_players else 0,
-                    "playerOrder": self.num_players if self.num_players <= self.max_players else -1
+                    "acceptStatus": accept_status,
+                    "playerOrder": self.num_players if self.num_players <= self.max_players else 0
                  }
+            
+            print(msg)
             
             encoded_data = self.msg_handler.encode(PackageDef.PKT_ACCEPT_CONNECT, msg)
         
@@ -237,6 +248,10 @@ class GameServer():
             if(len(self.suggested_results) == 2):
                 self.server_ui.change_from_task_selected_to_play_frame(self.suggested_results)
                 self.suggested_results = []
+                
+        elif(pkt_type == PackageDef.PKT_HELLO):
+            if(accept_status == 0):
+                conn.close()
         
     def broadcast(self, pkt_type, **kwargs):
         select_tasks = []
